@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qualidade+ | Avaliação de Atendimentos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ===================== TELA DE CONFIGURAÇÃO SUPABASE ===================== -->
+<div id="configOverlay" class="config-overlay">
+  <div class="config-card">
+    <div class="config-mark">Q+</div>
+    <h1>Conectar ao Supabase</h1>
+    <p class="config-sub">Informe as credenciais do seu projeto para iniciar o Qualidade+. Elas ficam salvas apenas neste navegador.</p>
+    <form id="configForm">
+      <label>URL do projeto Supabase</label>
+      <input type="text" id="cfgUrl" placeholder="https://xxxxx.supabase.co" required>
+      <label>Chave anon/public</label>
+      <input type="text" id="cfgKey" placeholder="eyJhbGciOi..." required>
+      <button type="submit" class="btn btn-primary btn-block">Conectar</button>
+    </form>
+    <p class="config-hint">Ainda não criou as tabelas? Rode o arquivo <code>schema.sql</code> no SQL Editor do Supabase antes de conectar.</p>
+    <p id="configError" class="config-error"></p>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="app" class="app hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">Q+</div>
+      <div class="brand-text">
+        <strong>Qualidade+</strong>
+        <span>Avaliação de Atendimentos</span>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-view="dashboard">
+        <span class="nav-ico">◧</span> Painel
+      </button>
+      <button class="nav-item" data-view="novo">
+        <span class="nav-ico">✎</span> Nova avaliação
+      </button>
+      <button class="nav-item" data-view="atendimentos">
+        <span class="nav-ico">☰</span> Atendimentos
+      </button>
+      <button class="nav-item" data-view="colaboradores">
+        <span class="nav-ico">◍</span> Colaboradores
+      </button>
+      <button class="nav-item" data-view="criterios">
+        <span class="nav-ico">◎</span> Critérios
+      </button>
+    </nav>
+
+    <button id="btnReconfigure" class="nav-footer">Trocar conexão Supabase</button>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ============ DASHBOARD ============ -->
+    <section id="view-dashboard" class="view active">
+      <header class="view-head">
+        <div>
+          <h1>Painel de qualidade</h1>
+          <p>Indicadores gerais dos atendimentos avaliados</p>
+        </div>
+        <div class="filter-row">
+          <select id="dashPeriodo">
+            <option value="30">Últimos 30 dias</option>
+            <option value="90">Últimos 90 dias</option>
+            <option value="365">Últimos 12 meses</option>
+            <option value="0">Todo o período</option>
+          </select>
+        </div>
+      </header>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <span class="kpi-label">Nota média geral</span>
+          <span class="kpi-value" id="kpiMedia">–</span>
+          <span class="kpi-sub">de 0 a 10</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Atendimentos avaliados</span>
+          <span class="kpi-value" id="kpiTotal">–</span>
+          <span class="kpi-sub" id="kpiTotalSub">no período</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Abaixo da meta (&lt; 6)</span>
+          <span class="kpi-value kpi-bad" id="kpiCriticos">–</span>
+          <span class="kpi-sub">atendimentos críticos</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Chat vs. Ligação</span>
+          <span class="kpi-value" id="kpiSplit">–</span>
+          <span class="kpi-sub">proporção avaliada</span>
+        </div>
+      </div>
+
+      <div class="chart-grid">
+        <div class="panel">
+          <h3>Evolução da nota média</h3>
+          <canvas id="chartEvolucao" height="140"></canvas>
+        </div>
+        <div class="panel">
+          <h3>Ranking por colaborador</h3>
+          <canvas id="chartColaboradores" height="140"></canvas>
+        </div>
+        <div class="panel panel-wide">
+          <h3>Média por critério</h3>
+          <canvas id="chartCriterios" height="110"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ NOVA AVALIAÇÃO ============ -->
+    <section id="view-novo" class="view">
+      <header class="view-head">
+        <div>
+          <h1>Nova avaliação</h1>
+          <p>Registre um atendimento e pontue cada critério de qualidade</p>
+        </div>
+      </header>
+
+      <form id="formAtendimento" class="form-card">
+        <div class="form-grid">
+          <div class="field">
+            <label>Colaborador avaliado *</label>
+            <select id="fColaborador" required></select>
+          </div>
+          <div class="field">
+            <label>Avaliador *</label>
+            <input type="text" id="fAvaliador" placeholder="Seu nome" required>
+          </div>
+          <div class="field">
+            <label>Tipo de atendimento *</label>
+            <select id="fTipo" required>
+              <option value="">Selecione</option>
+              <option value="chat">Chat</option>
+              <option value="ligacao">Ligação</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Data do atendimento *</label>
+            <input type="date" id="fData" required>
+          </div>
+          <div class="field">
+            <label>Cliente</label>
+            <input type="text" id="fCliente" placeholder="Nome do cliente (opcional)">
+          </div>
+          <div class="field">
+            <label>Protocolo</label>
+            <input type="text" id="fProtocolo" placeholder="Nº do protocolo (opcional)" class="mono">
+          </div>
+          <div class="field">
+            <label>Duração (min)</label>
+            <input type="number" id="fDuracao" min="0" step="1" placeholder="Ex: 8">
+          </div>
+        </div>
+
+        <div class="section-divider">
+          <span>Critérios de qualidade</span>
+          <span class="hint" id="criteriosHint">selecione o tipo de atendimento acima</span>
+        </div>
+
+        <div id="criteriosContainer" class="criterios-list"></div>
+
+        <div class="section-divider"><span>Observações</span></div>
+        <textarea id="fObservacoes" rows="3" placeholder="Pontos de destaque, elogios, orientações de melhoria..."></textarea>
+
+        <div class="form-footer">
+          <div class="nota-preview">
+            <span>Nota final</span>
+            <div class="score-ring" id="previewRing" data-score="0">
+              <span id="previewScore">0.0</span>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost" id="btnLimparForm">Limpar</button>
+            <button type="submit" class="btn btn-primary" id="btnSalvarAtendimento">Salvar avaliação</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- ============ ATENDIMENTOS ============ -->
+    <section id="view-atendimentos" class="view">
+      <header class="view-head">
+        <div>
+          <h1>Atendimentos avaliados</h1>
+          <p>Consulte, filtre e revise avaliações registradas</p>
+        </div>
+        <button class="btn btn-primary" data-view="novo">+ Nova avaliação</button>
+      </header>
+
+      <div class="filter-bar">
+        <input type="text" id="filtroBusca" placeholder="Buscar por cliente, protocolo ou colaborador...">
+        <select id="filtroColaborador"><option value="">Todos os colaboradores</option></select>
+        <select id="filtroTipo">
+          <option value="">Todos os tipos</option>
+          <option value="chat">Chat</option>
+          <option value="ligacao">Ligação</option>
+        </select>
+        <input type="date" id="filtroDataIni">
+        <input type="date" id="filtroDataFim">
+        <button class="btn btn-ghost" id="btnLimparFiltros">Limpar filtros</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Colaborador</th>
+              <th>Tipo</th>
+              <th>Cliente / Protocolo</th>
+              <th>Avaliador</th>
+              <th>Nota</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tabelaAtendimentos">
+            <tr><td colspan="7" class="empty-row">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ COLABORADORES ============ -->
+    <section id="view-colaboradores" class="view">
+      <header class="view-head">
+        <div>
+          <h1>Colaboradores</h1>
+          <p>Equipe elegível para avaliação de atendimento</p>
+        </div>
+        <button class="btn btn-primary" id="btnNovoColaborador">+ Colaborador</button>
+      </header>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Nome</th><th>Setor</th><th>Cargo</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody id="tabelaColaboradores">
+            <tr><td colspan="5" class="empty-row">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ CRITÉRIOS ============ -->
+    <section id="view-criterios" class="view">
+      <header class="view-head">
+        <div>
+          <h1>Critérios de qualidade</h1>
+          <p>Itens avaliados em cada atendimento e seus pesos na nota final</p>
+        </div>
+        <button class="btn btn-primary" id="btnNovoCriterio">+ Critério</button>
+      </header>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Critério</th><th>Aplica-se a</th><th>Peso</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody id="tabelaCriterios">
+            <tr><td colspan="5" class="empty-row">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===================== MODAIS ===================== -->
+<div id="modalColaborador" class="modal-overlay">
+  <div class="modal-card">
+    <h2 id="modalColaboradorTitulo">Novo colaborador</h2>
+    <form id="formColaborador">
+      <input type="hidden" id="colabId">
+      <label>Nome *</label>
+      <input type="text" id="colabNome" required>
+      <label>Setor</label>
+      <input type="text" id="colabSetor" placeholder="Ex: Suporte, Vendas...">
+      <label>Cargo</label>
+      <input type="text" id="colabCargo" placeholder="Ex: Atendente, Analista...">
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close-modal>Cancelar</button>
+        <button type="submit" class="btn btn-primary">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="modalCriterio" class="modal-overlay">
+  <div class="modal-card">
+    <h2 id="modalCriterioTitulo">Novo critério</h2>
+    <form id="formCriterio">
+      <input type="hidden" id="critId">
+      <label>Nome *</label>
+      <input type="text" id="critNome" required>
+      <label>Descrição</label>
+      <textarea id="critDescricao" rows="2"></textarea>
+      <label>Peso na nota final *</label>
+      <input type="number" id="critPeso" min="0.5" step="0.5" value="1" required>
+      <label>Aplica-se a *</label>
+      <select id="critTipo" required>
+        <option value="ambos">Chat e Ligação</option>
+        <option value="chat">Somente Chat</option>
+        <option value="ligacao">Somente Ligação</option>
+      </select>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close-modal>Cancelar</button>
+        <button type="submit" class="btn btn-primary">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="modalDetalhe" class="modal-overlay">
+  <div class="modal-card modal-wide">
+    <div class="modal-detail-head">
+      <h2>Detalhe do atendimento</h2>
+      <div class="score-ring" id="detalheRing"><span id="detalheScore">–</span></div>
+    </div>
+    <div id="detalheConteudo"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-danger" id="btnExcluirAtendimento">Excluir avaliação</button>
+      <button type="button" class="btn btn-ghost" data-close-modal>Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
