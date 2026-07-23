@@ -1,23 +1,25 @@
 /* ================= DESIGN TOKENS =================
-   Ink   #0B1220 (sidebar)   Paper #F4F5F7 (fundo)
+   Paleta alinhada à logo (badge azul elétrico sobre navy quase-preto):
+   Ink   #05070D (sidebar, tom do fundo da logo)   Paper #F4F5F7 (fundo)
    Surface #FFFFFF           Border #E3E6EC
-   Accent teal #0D9488 / dark #0B7A70
-   Good #16A34A  Warn #D97706  Bad #DC2626
+   Accent azul #0072C6 / dark #00558F / bright #00AEEF (ciano da logo)
+   Good #16A34A  Warn #D97706  Bad #DC2626 (mantidos — cores semânticas de nota)
    Type: Inter (UI) + JetBrains Mono (dados/números)
 ==================================================== */
 
 :root{
-  --ink:#0B1220;
-  --ink-soft:#141F35;
-  --ink-line:#22304C;
+  --ink:#05070D;
+  --ink-soft:#0E1526;
+  --ink-line:#1E2C48;
   --paper:#F4F5F7;
   --surface:#FFFFFF;
   --border:#E3E6EC;
   --text:#1B2434;
   --text-muted:#6B7688;
-  --accent:#0D9488;
-  --accent-dark:#0A6D64;
-  --accent-soft:#E6F5F3;
+  --accent:#0072C6;
+  --accent-dark:#00558F;
+  --accent-bright:#00AEEF;
+  --accent-soft:#E5F3FC;
   --good:#16A34A;
   --good-soft:#E9F8EE;
   --warn:#D97706;
@@ -25,7 +27,7 @@
   --bad:#DC2626;
   --bad-soft:#FBEAEA;
   --radius:10px;
-  --shadow:0 1px 2px rgba(15,23,42,.06), 0 8px 24px -12px rgba(15,23,42,.12);
+  --shadow:0 1px 2px rgba(5,7,13,.08), 0 8px 24px -12px rgba(5,7,13,.22);
 }
 
 *{box-sizing:border-box;}
@@ -324,4 +326,25 @@ input,select,textarea{font-family:inherit;font-size:14px;}
 
 @media (prefers-reduced-motion: reduce){
   *{animation:none !important;transition:none !important;}
+}
+
+/* ============ RELATÓRIO DE DESEMPENHO ============ */
+.report-header{display:flex;justify-content:space-between;align-items:center;gap:16px;}
+.report-logo{max-height:52px;max-width:180px;object-fit:contain;}
+.report-print-head{display:flex;align-items:center;gap:14px;margin-bottom:18px;}
+.report-print-head h2{margin:0;font-size:18px;}
+.report-print-head span{font-size:12.5px;color:var(--text-muted);}
+.report-emission{margin-top:22px;padding-top:14px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text-muted);}
+.hidden-on-screen{display:none;}
+#relObservacao{margin-top:2px;}
+
+@media print{
+  body *{visibility:hidden;}
+  #relatorioPrintArea, #relatorioPrintArea *{visibility:visible;}
+  #relatorioPrintArea{position:absolute;top:0;left:0;width:100%;padding:0;}
+  .hidden-on-screen{display:flex !important;}
+  .hidden-on-print{display:none !important;}
+  .sidebar, .view-head, .filter-bar{display:none !important;}
+  .panel, .kpi-card, .table-wrap{border:1px solid #ccc !important;box-shadow:none !important;}
+  canvas{max-width:100% !important;}
 }
