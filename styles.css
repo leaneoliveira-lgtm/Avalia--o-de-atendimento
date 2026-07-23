@@ -336,7 +336,34 @@ input,select,textarea{font-family:inherit;font-size:14px;}
 .report-print-head span{font-size:12.5px;color:var(--text-muted);}
 .report-emission{margin-top:22px;padding-top:14px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text-muted);}
 .hidden-on-screen{display:none;}
-#relObservacao{margin-top:2px;}
+#relObservacao{
+    width:100%;
+    min-height:120px;
+    padding:12px 14px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    background:#fff;
+    color:var(--text);
+    font-size:14px;
+    line-height:1.6;
+    resize:vertical;
+    transition:all .2s ease;
+    outline:none;
+    box-sizing:border-box;
+}
+
+#relObservacao::placeholder{
+    color:var(--text-muted);
+}
+
+#relObservacao:hover{
+    border-color:#C8D2E3;
+}
+
+#relObservacao:focus{
+    border-color:var(--accent);
+    box-shadow:0 0 0 4px rgba(0,114,198,.12);
+}
 
 @media print{
   body *{visibility:hidden;}
