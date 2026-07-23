@@ -44,14 +44,30 @@ create table if not exists atendimentos (
   data_atendimento date not null,
   cliente text,
   protocolo text,
+  placa text,
   duracao_minutos numeric,
   observacoes text,
   nota_final numeric,
+  sla_cumprido boolean,
+  csat numeric check (csat is null or (csat >= 0 and csat <= 10)),
   created_at timestamptz not null default now()
 );
 
 create index if not exists idx_atendimentos_colaborador on atendimentos(colaborador_id);
 create index if not exists idx_atendimentos_data on atendimentos(data_atendimento);
+create index if not exists idx_atendimentos_placa on atendimentos(placa);
+
+-- ------------------------------------------------------------
+-- Observação do supervisor por colaborador (Relatório de Desempenho)
+-- Um registro por colaborador, atualizado/editado ao longo do tempo.
+-- ------------------------------------------------------------
+create table if not exists relatorio_observacoes (
+  id uuid primary key default gen_random_uuid(),
+  colaborador_id uuid not null unique references colaboradores(id) on delete cascade,
+  observacao text,
+  autor text,
+  updated_at timestamptz not null default now()
+);
 
 -- ------------------------------------------------------------
 -- Notas atribuídas por critério em cada atendimento
@@ -77,10 +93,13 @@ alter table colaboradores enable row level security;
 alter table criterios_avaliacao enable row level security;
 alter table atendimentos enable row level security;
 alter table avaliacoes_criterios enable row level security;
+alter table relatorio_observacoes enable row level security;
 
 create policy "acesso total colaboradores" on colaboradores
   for all using (true) with check (true);
 create policy "acesso total criterios" on criterios_avaliacao
+  for all using (true) with check (true);
+create policy "acesso total relatorio_observacoes" on relatorio_observacoes
   for all using (true) with check (true);
 create policy "acesso total atendimentos" on atendimentos
   for all using (true) with check (true);
