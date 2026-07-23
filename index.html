@@ -8,31 +8,37 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<!-- ===================== TELA DE CONFIGURAÇÃO SUPABASE ===================== -->
+<!-- ===================== TELA DE LOGIN (senha local) ===================== -->
+<!-- [SUBSTITUÍDO] Esta tela antes coletava URL + chave do Supabase do usuário
+     (campos cfgUrl/cfgKey/cfgLogo) para montar a conexão. Isso foi removido:
+     a conexão com o Supabase agora é fixa no código (ver app.js, constantes
+     SUPABASE_URL/SUPABASE_KEY) e não depende mais de entrada do usuário.
+     O que ficou aqui é apenas um portão de senha local, sem relação com o
+     Supabase Auth (que nunca chegou a ser usado neste sistema). -->
 <div id="configOverlay" class="config-overlay">
   <div class="config-card">
-    <div class="config-mark">Q+</div>
-    <h1>Conectar ao Supabase</h1>
-    <p class="config-sub">Informe as credenciais do seu projeto para iniciar o Qualidade+. Elas ficam salvas apenas neste navegador.</p>
+    <div class="config-mark" id="loginLogoMark">Q+</div>
+    <h1>Acesso ao sistema</h1>
+    <p class="config-sub">Informe a senha de acesso para iniciar o Qualidade+.</p>
     <form id="configForm">
-      <label>URL do projeto Supabase</label>
-      <input type="text" id="cfgUrl" placeholder="https://xxxxx.supabase.co" required>
-      <label>Chave anon/public</label>
-      <input type="text" id="cfgKey" placeholder="eyJhbGciOi..." required>
-      <button type="submit" class="btn btn-primary btn-block">Conectar</button>
+      <label>Senha</label>
+      <input type="password" id="loginSenha" placeholder="Digite a senha de acesso" required autocomplete="current-password">
+      <button type="submit" class="btn btn-primary btn-block">Entrar</button>
     </form>
-    <p class="config-hint">Ainda não criou as tabelas? Rode o arquivo <code>schema.sql</code> no SQL Editor do Supabase antes de conectar.</p>
     <p id="configError" class="config-error"></p>
   </div>
 </div>
 
-  
 <!-- ===================== APP ===================== -->
 <div id="app" class="app hidden">
+
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
@@ -60,9 +66,14 @@
       <button class="nav-item" data-view="criterios">
         <span class="nav-ico">◎</span> Critérios
       </button>
+      <button class="nav-item" data-view="relatorio">
+        <span class="nav-ico">▤</span> Relatório de Desempenho
+      </button>
     </nav>
 
-    <button id="btnReconfigure" class="nav-footer">Trocar conexão Supabase</button>
+    <!-- [SUBSTITUÍDO] Antes: "Trocar conexão Supabase" (limpava URL/chave salvas).
+         Agora: encerra apenas a sessão de senha local. -->
+    <button id="btnReconfigure" class="nav-footer">Sair</button>
   </aside>
 
   <!-- MAIN -->
@@ -82,6 +93,7 @@
             <option value="365">Últimos 12 meses</option>
             <option value="0">Todo o período</option>
           </select>
+          <button class="btn btn-ghost" data-view="relatorio">▤ Relatório de Desempenho</button>
         </div>
       </header>
 
@@ -164,6 +176,11 @@
             <input type="text" id="fProtocolo" placeholder="Nº do protocolo (opcional)" class="mono">
           </div>
           <div class="field">
+            <label>Placa do veículo</label>
+            <input type="text" id="fPlaca" placeholder="Ex: ABC1D23 (opcional)" class="mono" maxlength="8">
+            <span class="hint" id="placaHint"></span>
+          </div>
+          <div class="field">
             <label>Duração (min)</label>
             <input type="number" id="fDuracao" min="0" step="1" placeholder="Ex: 8">
           </div>
@@ -206,6 +223,7 @@
 
       <div class="filter-bar">
         <input type="text" id="filtroBusca" placeholder="Buscar por cliente, protocolo ou colaborador...">
+        <input type="text" id="filtroPlaca" placeholder="Placa" class="mono" style="max-width:130px" maxlength="8">
         <select id="filtroColaborador"><option value="">Todos os colaboradores</option></select>
         <select id="filtroTipo">
           <option value="">Todos os tipos</option>
@@ -215,6 +233,7 @@
         <input type="date" id="filtroDataIni">
         <input type="date" id="filtroDataFim">
         <button class="btn btn-ghost" id="btnLimparFiltros">Limpar filtros</button>
+        <button class="btn btn-ghost" id="btnExportarCsvAtendimentos">Exportar CSV</button>
       </div>
 
       <div class="table-wrap">
@@ -225,13 +244,14 @@
               <th>Colaborador</th>
               <th>Tipo</th>
               <th>Cliente / Protocolo</th>
+              <th>Placa</th>
               <th>Avaliador</th>
               <th>Nota</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="tabelaAtendimentos">
-            <tr><td colspan="7" class="empty-row">Carregando...</td></tr>
+            <tr><td colspan="8" class="empty-row">Carregando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -278,6 +298,94 @@
             <tr><td colspan="5" class="empty-row">Carregando...</td></tr>
           </tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- ============ RELATÓRIO DE DESEMPENHO ============ -->
+    <section id="view-relatorio" class="view">
+      <header class="view-head">
+        <div>
+          <h1>Relatório de Desempenho</h1>
+          <p>Relatório individual de desempenho por colaborador</p>
+        </div>
+      </header>
+
+      <div class="filter-bar">
+        <select id="relSetor"><option value="">Todos os setores</option></select>
+        <select id="relColaborador"><option value="">Selecione o colaborador</option></select>
+        <input type="date" id="relDataIni">
+        <input type="date" id="relDataFim">
+        <button class="btn btn-primary" id="btnGerarRelatorio">Gerar Relatório</button>
+      </div>
+
+      <div id="relatorioResultado" class="hidden">
+
+        <div id="relatorioPrintArea">
+          <div class="report-print-head hidden-on-screen">
+            <img id="relLogoImg" class="report-logo hidden" alt="Logo">
+            <div>
+              <h2 id="relPrintNomeColab"></h2>
+              <span id="relPrintMeta"></span>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-bottom:14px">
+            <div class="report-header">
+              <div>
+                <h3 id="relNomeColaborador" style="font-size:17px;margin:0 0 4px">–</h3>
+                <span class="hint" id="relInfoColaborador">–</span>
+              </div>
+              <div class="score-ring" id="relRingMedia"><span id="relMediaGeral">–</span></div>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card"><span class="kpi-label">Avaliações</span><span class="kpi-value" id="relQtd">–</span></div>
+            <div class="kpi-card"><span class="kpi-label">Melhor nota</span><span class="kpi-value" id="relMelhor">–</span></div>
+            <div class="kpi-card"><span class="kpi-label">Menor nota</span><span class="kpi-value" id="relMenor">–</span></div>
+            <div class="kpi-card"><span class="kpi-label">SLA cumprido</span><span class="kpi-value" id="relSla">–</span></div>
+            <div class="kpi-card"><span class="kpi-label">CSAT médio</span><span class="kpi-value" id="relCsat">–</span></div>
+            <div class="kpi-card"><span class="kpi-label">Ranking no setor</span><span class="kpi-value" id="relRanking">–</span></div>
+          </div>
+
+          <div class="chart-grid">
+            <div class="panel">
+              <h3>Evolução das notas no período</h3>
+              <canvas id="chartRelEvolucao" height="140"></canvas>
+            </div>
+            <div class="panel">
+              <h3>Média por critério</h3>
+              <canvas id="chartRelCriterios" height="140"></canvas>
+            </div>
+          </div>
+
+          <div class="section-divider" style="margin-top:20px"><span>Resumo das avaliações</span></div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr><th>Data</th><th>Cliente</th><th>Placa</th><th>Protocolo</th><th>Tipo</th><th>Nota final</th><th>Avaliador</th></tr>
+              </thead>
+              <tbody id="relTabelaAvaliacoes"></tbody>
+            </table>
+          </div>
+
+          <div class="section-divider"><span>Observação para o Supervisor</span></div>
+          <p class="hint" style="margin:-6px 0 10px">Pontos fortes, oportunidades de melhoria, necessidade de reciclagem, recomendações de acompanhamento.</p>
+          <textarea id="relObservacao" rows="5" placeholder="Escreva o feedback sobre o desempenho do colaborador..."></textarea>
+
+          <div class="report-emission hidden-on-screen">
+            <span id="relEmissaoInfo"></span>
+          </div>
+        </div>
+
+        <div class="form-footer hidden-on-print">
+          <button class="btn btn-ghost" id="btnSalvarObservacaoRel">Salvar observação</button>
+          <div class="form-actions">
+            <button class="btn btn-ghost" id="btnImprimirRelatorio">Imprimir</button>
+            <button class="btn btn-ghost" id="btnExportarExcelRel">Exportar Excel</button>
+            <button class="btn btn-primary" id="btnExportarPdfRel">Exportar PDF</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -338,6 +446,8 @@
     <div id="detalheConteudo"></div>
     <div class="modal-actions">
       <button type="button" class="btn btn-danger" id="btnExcluirAtendimento">Excluir avaliação</button>
+      <button type="button" class="btn btn-ghost" id="btnEditarAtendimento">Editar</button>
+      <button type="button" class="btn btn-primary hidden" id="btnSalvarEdicaoAtendimento">Salvar alterações</button>
       <button type="button" class="btn btn-ghost" data-close-modal>Fechar</button>
     </div>
   </div>
