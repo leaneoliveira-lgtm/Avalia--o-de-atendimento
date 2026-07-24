@@ -8,9 +8,10 @@
 const SUPABASE_URL = 'https://exlnqvjpqihhsgvztoef.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_YQCPiatRyL66R8cE5nc6HQ_glpUL_rg';
 
-// [FIXO] Logo da empresa — antes era uma URL opcional digitada na tela de
-// login (campo cfgLogo). Defina aqui o link da imagem da logo quando tiver.
-const COMPANY_LOGO_URL = '';
+// [FIXO] Logo da empresa — arquivo logo.png entregue junto do sistema.
+// Usada na sidebar, na tela de login (diretamente no HTML) e no cabeçalho
+// do Relatório de Desempenho (impressão/PDF, via STATE.logoUrl).
+const COMPANY_LOGO_URL = 'logo.png';
 
 // [NOVO] Autenticação local simples — substitui por completo a etapa em que
 // o usuário informava URL + chave do Supabase para "entrar" no sistema.
@@ -86,11 +87,6 @@ window.addEventListener('DOMContentLoaded', () => {
   if (localStorage.getItem(LOGIN_SESSION_KEY) === '1') {
     initSupabaseClient();
     startApp();
-  }
-
-  const logoMark = document.getElementById('loginLogoMark');
-  if (COMPANY_LOGO_URL && logoMark) {
-    logoMark.innerHTML = `<img src="${COMPANY_LOGO_URL}" alt="Logo" style="max-width:100%;max-height:100%;object-fit:contain">`;
   }
 });
 
@@ -509,7 +505,6 @@ function setupFiltros() {
     document.getElementById('filtroDataFim').value = '';
     renderAtendimentosTable();
   });
-  document.getElementById('btnExportarCsvAtendimentos').addEventListener('click', exportarAtendimentosCsv);
 }
 
 async function loadAtendimentos() {
@@ -567,40 +562,6 @@ function renderAtendimentosTable() {
       <td style="text-align:right"><button class="row-link" onclick="abrirDetalhe('${a.id}')">Ver</button></td>
     </tr>
   `).join('');
-}
-
-function exportarAtendimentosCsv() {
-  const lista = filtrarAtendimentosAtuais();
-  if (!lista.length) { toast('Nenhum atendimento para exportar com os filtros atuais.', true); return; }
-  const linhas = [['Data', 'Colaborador', 'Tipo', 'Cliente', 'Protocolo', 'Placa', 'Avaliador', 'Nota final', 'Observações']];
-  lista.forEach(a => {
-    linhas.push([
-      fmtDate(a.data_atendimento),
-      a.colaboradores?.nome || '',
-      tipoLabel(a.tipo_atendimento),
-      a.cliente || '',
-      a.protocolo || '',
-      a.placa || '',
-      a.avaliador || '',
-      a.nota_final != null ? Number(a.nota_final).toFixed(1) : '',
-      (a.observacoes || '').replace(/\r?\n/g, ' '),
-    ]);
-  });
-  const csv = linhas.map(l => l.map(csvEscape).join(';')).join('\r\n');
-  baixarArquivo('atendimentos.csv', '\uFEFF' + csv, 'text/csv;charset=utf-8;');
-  toast('CSV exportado.');
-}
-function csvEscape(v) {
-  const s = String(v ?? '');
-  return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-}
-function baixarArquivo(nome, conteudo, tipo) {
-  const blob = new Blob([conteudo], { type: tipo });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url; link.download = nome;
-  document.body.appendChild(link); link.click(); document.body.removeChild(link);
-  URL.revokeObjectURL(url);
 }
 
 /* ---------------------------------------------------------
@@ -769,12 +730,12 @@ function renderChartEvolucao(lista) {
       datasets: [{
         label: 'Nota média',
         data: medias,
-        borderColor: '#0D9488',
-        backgroundColor: 'rgba(13,148,136,0.12)',
+        borderColor: '#0072C6',
+        backgroundColor: 'rgba(0,114,198,0.12)',
         fill: true,
         tension: 0.35,
         pointRadius: 3,
-        pointBackgroundColor: '#0D9488',
+        pointBackgroundColor: '#0072C6',
       }]
     },
     options: {
@@ -838,7 +799,7 @@ async function renderChartCriterios(lista) {
 
   STATE.charts.criterios = new Chart(ctx, {
     type: 'bar',
-    data: { labels: nomes, datasets: [{ label: 'Média', data: medias, backgroundColor: '#0D9488', borderRadius: 4 }] },
+    data: { labels: nomes, datasets: [{ label: 'Média', data: medias, backgroundColor: '#0072C6', borderRadius: 4 }] },
     options: {
       responsive: true,
       plugins: { legend: { display: false } },
@@ -940,8 +901,9 @@ async function gerarRelatorio() {
       <td><span class="pill pill-${a.tipo_atendimento}">${tipoLabel(a.tipo_atendimento)}</span></td>
       <td>${scoreBadgeHtml(a.nota_final)}</td>
       <td>${escapeHtml(a.avaliador)}</td>
+      <td>${escapeHtml(a.observacoes || '–')}</td>
     </tr>
-  `).join('') : '<tr><td colspan="7" class="empty-row">Nenhuma avaliação no período.</td></tr>';
+  `).join('') : '<tr><td colspan="8" class="empty-row">Nenhuma avaliação no período.</td></tr>';
 
   // Evolução das notas no período
   const porMes = {};
@@ -956,7 +918,7 @@ async function gerarRelatorio() {
   destroyChart('relEvolucao');
   STATE.charts.relEvolucao = new Chart(document.getElementById('chartRelEvolucao'), {
     type: 'line',
-    data: { labels: meses.map(formatMesLabel), datasets: [{ label: 'Nota média', data: mediasMes, borderColor: '#0D9488', backgroundColor: 'rgba(13,148,136,0.12)', fill: true, tension: .35, pointRadius: 3, pointBackgroundColor: '#0D9488' }] },
+    data: { labels: meses.map(formatMesLabel), datasets: [{ label: 'Nota média', data: mediasMes, borderColor: '#0072C6', backgroundColor: 'rgba(0,114,198,0.12)', fill: true, tension: .35, pointRadius: 3, pointBackgroundColor: '#0072C6' }] },
     options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 10 } } }
   });
 
@@ -977,7 +939,7 @@ async function gerarRelatorio() {
   destroyChart('relCriterios');
   STATE.charts.relCriterios = new Chart(document.getElementById('chartRelCriterios'), {
     type: 'bar',
-    data: { labels: nomesCrit, datasets: [{ label: 'Média', data: valoresCrit, backgroundColor: '#0D9488', borderRadius: 4 }] },
+    data: { labels: nomesCrit, datasets: [{ label: 'Média', data: valoresCrit, backgroundColor: '#0072C6', borderRadius: 4 }] },
     options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 10 } } }
   });
 
@@ -992,11 +954,10 @@ async function gerarRelatorio() {
   if (STATE.logoUrl) { logoImg.src = STATE.logoUrl; logoImg.classList.remove('hidden'); } else { logoImg.classList.add('hidden'); }
 
   const agora = new Date();
-  const avaliadorEmissor = document.getElementById('fAvaliador').value.trim() || '—';
-  document.getElementById('relEmissaoInfo').textContent = `Relatório emitido em ${agora.toLocaleDateString('pt-BR')} às ${agora.toLocaleTimeString('pt-BR').slice(0, 5)} por ${avaliadorEmissor}`;
+  document.getElementById('relEmissaoInfo').textContent = `Relatório emitido em ${agora.toLocaleDateString('pt-BR')} às ${agora.toLocaleTimeString('pt-BR').slice(0, 5)}`;
 
   STATE.relatorioAtual = {
-    colaborador, dataIni, dataFim, periodoTxt, atendimentos, avaliadorEmissor,
+    colaborador, dataIni, dataFim, periodoTxt, atendimentos,
     media, total, melhor, menor, rankingTexto,
     mediasCriterio: nomesCrit.map((n, i) => ({ nome: n, media: valoresCrit[i] })),
   };
@@ -1024,35 +985,71 @@ function exportarRelatorioExcel() {
   if (!r) { toast('Gere um relatório antes de exportar.', true); return; }
   const wb = XLSX.utils.book_new();
 
-  const resumo = [
-    ['Relatório de Desempenho'],
-    ['Colaborador', r.colaborador.nome],
-    ['Setor', r.colaborador.setor || '–'],
-    ['Cargo', r.colaborador.cargo || '–'],
-    ['Período analisado', r.periodoTxt],
-    [],
-    ['Quantidade de avaliações', r.total],
-    ['Nota média', r.total ? r.media.toFixed(1) : '–'],
-    ['Melhor nota', r.total ? r.melhor.toFixed(1) : '–'],
-    ['Menor nota', r.total ? r.menor.toFixed(1) : '–'],
-    ['Percentual de SLA cumprido', '–'],
-    ['Média do CSAT', '–'],
-    ['Ranking no setor', r.rankingTexto],
-    [],
-    ['Observação para o Supervisor'],
-    [document.getElementById('relObservacao').value || '–'],
-    [],
-    ['Data de emissão', new Date().toLocaleString('pt-BR')],
-    ['Avaliador responsável pela emissão', r.avaliadorEmissor],
+  // [CORRIGIDO] A aba "Resumo" antes era montada como pares Campo/Valor em
+  // duas colunas (formato que dificultava filtro/leitura). Agora cada
+  // informação vira uma coluna, com o cabeçalho na linha 1 e os valores do
+  // colaborador na linha 2 — se no futuro mais de um colaborador for
+  // exportado no mesmo arquivo, basta empilhar uma nova linha de valores
+  // por colaborador, mantendo o mesmo cabeçalho.
+  const cabecalhoResumo = [
+    'Colaborador', 'Setor', 'Cargo', 'Período Analisado', 'Quantidade de Avaliações',
+    'Nota Média', 'Melhor Nota', 'Menor Nota', 'SLA Cumprido', 'Média CSAT',
+    'Ranking', 'Observação para o Supervisor', 'Data de Emissão',
   ];
-  const wsResumo = XLSX.utils.aoa_to_sheet(resumo);
-  wsResumo['!cols'] = [{ wch: 32 }, { wch: 42 }];
+  const linhaResumo = [
+    r.colaborador.nome,
+    r.colaborador.setor || '–',
+    r.colaborador.cargo || '–',
+    r.periodoTxt,
+    r.total,
+    r.total ? Number(r.media.toFixed(1)) : '–',
+    r.total ? Number(r.melhor.toFixed(1)) : '–',
+    r.total ? Number(r.menor.toFixed(1)) : '–',
+    '–',
+    '–',
+    r.rankingTexto,
+    document.getElementById('relObservacao').value.trim() || '–',
+    new Date(),
+  ];
+
+  const wsResumo = XLSX.utils.aoa_to_sheet([cabecalhoResumo, linhaResumo]);
+
+  // Estilo do cabeçalho: negrito, fundo discreto, texto centralizado
+  cabecalhoResumo.forEach((_, c) => {
+    const ref = XLSX.utils.encode_cell({ r: 0, c });
+    if (wsResumo[ref]) {
+      wsResumo[ref].s = {
+        font: { bold: true, color: { rgb: '1B2434' } },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+        fill: { fgColor: { rgb: 'E3E6EC' } },
+      };
+    }
+  });
+
+  // Formatos de número/data na linha de valores (índices: 4 qtd, 5-7 notas, 12 data)
+  const refQtd = XLSX.utils.encode_cell({ r: 1, c: 4 });
+  if (wsResumo[refQtd]) wsResumo[refQtd].z = '0';
+  [5, 6, 7].forEach(c => {
+    const ref = XLSX.utils.encode_cell({ r: 1, c });
+    if (wsResumo[ref] && typeof wsResumo[ref].v === 'number') wsResumo[ref].z = '0.0';
+  });
+  const refData = XLSX.utils.encode_cell({ r: 1, c: 12 });
+  if (wsResumo[refData]) wsResumo[refData].z = 'dd/mm/yyyy hh:mm';
+
+  // Largura automática das colunas conforme o conteúdo
+  wsResumo['!cols'] = cabecalhoResumo.map((h, i) => {
+    const valor = linhaResumo[i];
+    const valorStr = valor instanceof Date ? '23/07/2026 11:32' : String(valor ?? '');
+    return { wch: Math.min(Math.max(h.length, valorStr.length) + 2, 45) };
+  });
+
   XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
 
-  const historico = [['Data', 'Cliente', 'Placa', 'Protocolo', 'Tipo', 'Nota final', 'Avaliador']]
+  const historico = [['Data', 'Cliente', 'Placa', 'Protocolo', 'Tipo', 'Nota final', 'Avaliador', 'Observações']]
     .concat(r.atendimentos.map(a => [
       fmtDate(a.data_atendimento), a.cliente || '', a.placa || '', a.protocolo || '',
       tipoLabel(a.tipo_atendimento), a.nota_final != null ? Number(a.nota_final).toFixed(1) : '', a.avaliador || '',
+      (a.observacoes || '').replace(/\r?\n/g, ' '),
     ]));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(historico), 'Histórico');
 
@@ -1062,6 +1059,7 @@ function exportarRelatorioExcel() {
   XLSX.writeFile(wb, `relatorio-${slugify(r.colaborador.nome)}.xlsx`);
   toast('Excel exportado.');
 }
+
 
 function exportarRelatorioPdf() {
   const r = STATE.relatorioAtual;
@@ -1073,17 +1071,20 @@ function exportarRelatorioPdf() {
 
   const temLogo = !!STATE.logoUrl;
   if (temLogo) {
-    try { doc.addImage(document.getElementById('relLogoImg'), 'PNG', margin, y, 90, 34); } catch (e) { /* logo não carregada */ }
+    // [CORRIGIDO] A logo é uma imagem quadrada (círculo). Antes era forçada
+    // em uma caixa 90x34 (bem mais larga que alta), o que a distorcia/
+    // esticava. Agora usa uma caixa quadrada, preservando a proporção real.
+    try { doc.addImage(document.getElementById('relLogoImg'), 'PNG', margin, y, 46, 46); } catch (e) { /* logo não carregada */ }
   }
   doc.setFontSize(16); doc.setFont(undefined, 'bold');
-  doc.text('Relatório de Desempenho', margin + (temLogo ? 100 : 0), y + 20);
+  doc.text('Relatório de Desempenho', margin + (temLogo ? 58 : 0), y + 18);
   doc.setFontSize(10); doc.setFont(undefined, 'normal');
-  doc.text(`${r.colaborador.nome} — ${[r.colaborador.setor, r.colaborador.cargo].filter(Boolean).join(' · ') || '–'}`, margin + (temLogo ? 100 : 0), y + 36);
-  y += 60;
+  doc.text(`${r.colaborador.nome} — ${[r.colaborador.setor, r.colaborador.cargo].filter(Boolean).join(' · ') || '–'}`, margin + (temLogo ? 58 : 0), y + 34);
+  y += 66;
 
   doc.setFontSize(9); doc.setTextColor(100);
   doc.text(`Período analisado: ${r.periodoTxt}`, margin, y); y += 14;
-  doc.text(`Emitido em ${new Date().toLocaleString('pt-BR')} por ${r.avaliadorEmissor}`, margin, y);
+  doc.text(`Relatório emitido em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR').slice(0, 5)}`, margin, y);
   doc.setTextColor(0); y += 22;
 
   doc.autoTable({
@@ -1122,6 +1123,20 @@ function exportarRelatorioPdf() {
     body: r.atendimentos.map(a => [fmtDate(a.data_atendimento), a.cliente || '–', a.placa || '–', a.protocolo || '–', tipoLabel(a.tipo_atendimento), a.nota_final != null ? Number(a.nota_final).toFixed(1) : '–', a.avaliador || '']),
   });
   y = doc.lastAutoTable.finalY + 20;
+
+  const comObservacao = r.atendimentos.filter(a => (a.observacoes || '').trim());
+  if (comObservacao.length) {
+    if (y > 620) { doc.addPage(); y = margin; }
+    doc.setFontSize(11); doc.setFont(undefined, 'bold');
+    doc.text('Observações das avaliações', margin, y); y += 8;
+    doc.autoTable({
+      startY: y + 6, margin: { left: margin, right: margin }, styles: { fontSize: 8, cellWidth: 'wrap' },
+      columnStyles: { 1: { cellWidth: 380 } },
+      head: [['Data', 'Observação registrada na avaliação']],
+      body: comObservacao.map(a => [fmtDate(a.data_atendimento), a.observacoes.trim()]),
+    });
+    y = doc.lastAutoTable.finalY + 20;
+  }
 
   if (y > 650) { doc.addPage(); y = margin; }
   doc.setFontSize(11); doc.setFont(undefined, 'bold');
