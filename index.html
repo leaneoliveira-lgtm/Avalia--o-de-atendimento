@@ -8,7 +8,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- [ATUALIZADO] xlsx-js-style substitui o xlsx padrão: mesma API (XLSX.utils, XLSX.writeFile),
+     mas com suporte a estilo de célula (negrito, fundo, alinhamento) na exportação. -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <link rel="stylesheet" href="styles.css">
@@ -24,7 +26,7 @@
      Supabase Auth (que nunca chegou a ser usado neste sistema). -->
 <div id="configOverlay" class="config-overlay">
   <div class="config-card">
-    <div class="config-mark" id="loginLogoMark">Q+</div>
+    <img class="config-mark" id="loginLogoMark" src="logo.png" alt="Logo">
     <h1>Acesso ao sistema</h1>
     <p class="config-sub">Informe a senha de acesso para iniciar o Qualidade+.</p>
     <form id="configForm">
@@ -43,7 +45,7 @@
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-mark">Q+</div>
+      <img class="brand-mark" src="logo.png" alt="Logo">
       <div class="brand-text">
         <strong>Qualidade+</strong>
         <span>Avaliação de Atendimentos</span>
@@ -233,7 +235,6 @@
         <input type="date" id="filtroDataIni">
         <input type="date" id="filtroDataFim">
         <button class="btn btn-ghost" id="btnLimparFiltros">Limpar filtros</button>
-        <button class="btn btn-ghost" id="btnExportarCsvAtendimentos">Exportar CSV</button>
       </div>
 
       <div class="table-wrap">
@@ -363,7 +364,7 @@
           <div class="table-wrap">
             <table class="data-table">
               <thead>
-                <tr><th>Data</th><th>Cliente</th><th>Placa</th><th>Protocolo</th><th>Tipo</th><th>Nota final</th><th>Avaliador</th></tr>
+                <tr><th>Data</th><th>Cliente</th><th>Placa</th><th>Protocolo</th><th>Tipo</th><th>Nota final</th><th>Avaliador</th><th>Observações</th></tr>
               </thead>
               <tbody id="relTabelaAvaliacoes"></tbody>
             </table>
